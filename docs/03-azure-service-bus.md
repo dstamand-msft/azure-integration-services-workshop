@@ -167,6 +167,8 @@ flowchart TB
 
 ### Dead-Letter Queue (DLQ)
 
+The Dead-Letter Queue is a secondary sub-queue that holds messages which cannot be delivered or processed successfully. Every queue and topic subscription has an associated DLQ that is automatically created and managed by Service Bus.
+
 ```mermaid
 flowchart TB
     Q[Main Queue] --> PROC{Processing}
@@ -182,11 +184,72 @@ flowchart TB
     style DLQ fill:#FF6B6B,color:#fff
 ```
 
-**DLQ Scenarios:**
-- Max delivery count exceeded
-- TTL expired
-- Subscription filter exception
-- Explicit dead-lettering
+#### When Messages Are Sent to DLQ
+
+**Automatic Dead-Lettering:**
+
+| Scenario | Description | Configuration |
+|----------|-------------|---------------|
+| **Max Delivery Count Exceeded** | Message received and abandoned more times than `MaxDeliveryCount` (default: 10) | Set `MaxDeliveryCount` on queue/subscription |
+| **Message Expiration (TTL)** | Message exceeds its TimeToLive value | Enable `DeadLetteringOnMessageExpiration` |
+| **Subscription Filter Errors** | Filter cannot be evaluated on a subscription | Enable `EnableDeadLetteringOnFilterEvaluationExceptions` |
+| **Session State Size Exceeded** | Session state exceeds 1 MB limit | N/A - system enforced |
+
+**Explicit Dead-Lettering:**
+- Application code calls `DeadLetterAsync()` when business logic determines a message cannot be processed
+
+#### Dead-Letter Reason Codes
+
+| Reason | Description |
+|--------|-------------|
+| `MaxDeliveryCountExceeded` | Too many delivery attempts failed |
+| `TTLExpiredException` | Message time-to-live expired |
+| `HeaderSizeExceeded` | Message headers too large |
+| `SessionIdIsMissing` | Session-enabled queue received non-session message |
+
+#### Accessing the Dead-Letter Queue
+
+The DLQ path follows the format: `<queue-name>/$deadletterqueue` or `<topic>/<subscription>/$deadletterqueue`
+
+```csharp
+// Create a receiver for the dead-letter queue
+var dlqPath = ServiceBusReceiverClient.FormatDeadLetterPath(queueName);
+var dlqReceiver = client.CreateReceiver(dlqPath);
+
+// Receive dead-lettered messages
+var messages = await dlqReceiver.ReceiveMessagesAsync(maxMessages: 10);
+
+foreach (var message in messages)
+{
+    // Inspect dead-letter reason
+    var reason = message.DeadLetterReason;
+    var description = message.DeadLetterErrorDescription;
+    
+    Console.WriteLine($"DLQ Reason: {reason}, Description: {description}");
+    
+    // Process or resubmit the message
+    await dlqReceiver.CompleteMessageAsync(message);
+}
+```
+
+#### Explicitly Dead-Lettering Messages
+
+```csharp
+// Dead-letter a message with custom reason
+await receiver.DeadLetterMessageAsync(
+    message,
+    deadLetterReason: "InvalidPayload",
+    deadLetterErrorDescription: "Message format was invalid - missing required fields"
+);
+```
+
+#### Best Practices for DLQ Management
+
+- **Monitor DLQ regularly** - Set up alerts for messages in DLQ
+- **Implement DLQ processors** - Create background jobs to handle dead-lettered messages
+- **Log dead-letter reasons** - Track patterns to fix root causes
+- **Set appropriate MaxDeliveryCount** - Balance between retry attempts and quick failure detection
+- **Consider automatic cleanup** - Set TTL on DLQ messages to prevent unlimited growth
 
 ### Message Forwarding
 

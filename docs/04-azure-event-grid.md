@@ -48,6 +48,82 @@ graph LR
 | **Subscription** | Route events to handlers |
 | **Event Handler** | Processes the event |
 
+## Pricing Tiers: Basic vs Standard
+
+Azure Event Grid offers two tiers with different capabilities and use cases.
+
+### Feature Comparison
+
+| Feature | **Standard Tier** | **Basic Tier** |
+|---------|-------------------|----------------|
+| **Throughput** | High - up to 40 MB/s (ingress) and 80 MB/s (egress) | Low - up to 5 MB/s (ingress and egress) |
+| **MQTT v5 and v3.1.1** | ✅ Yes | ❌ No |
+| **Pull delivery** | ✅ Yes | ❌ No |
+| **Publish/subscribe to custom events** | ✅ Yes | ✅ Yes |
+| **Push delivery to Webhooks** | ✅ Yes | ✅ Yes |
+| **Push delivery to Event Hubs** | ✅ Yes | ✅ Yes |
+| **Push delivery to Azure services** (Functions, Service Bus, Storage Queues, Relay) | ❌ No | ✅ Yes |
+| **Maximum message retention** | 7 days (namespace topics) | 1 day |
+| **Subscribe to Azure system events** | ❌ No | ✅ Yes |
+| **Subscribe to partner events** | ❌ No | ✅ Yes |
+| **Domain scope subscriptions** | ❌ No | ✅ Yes |
+| **Pull delivery to Fabric Eventstream** | ✅ Yes | ❌ No |
+
+### When to Use Basic Tier
+
+Choose **Basic** if:
+- You want to **trigger actions based on Azure system events** (blob storage, resource changes)
+- You need to subscribe to **partner events** (Auth0, SAP, Twilio)
+- You want **push delivery to Azure Functions, Service Bus, or Storage Queues**
+- You're using **Event Grid domains** for multi-tenant scenarios
+- Your throughput needs are **≤ 5 MB/s**
+- Event retention of **1 day** is sufficient
+
+**Basic tier resources:** Custom Topics, System Topics, Partner Topics, Domains
+
+### When to Use Standard Tier
+
+Choose **Standard** if:
+- You need **MQTT pub-sub** for IoT bidirectional communication
+- You want **pull delivery** for flexible consumption patterns with multiple consumers
+- You require **high throughput** (up to 40 MB/s ingress, 80 MB/s egress)
+- You need **longer event retention** (up to 7 days)
+- You're building **CloudEvents-based** custom event solutions
+- You need **push delivery to Event Hubs** with AMQP
+
+**Standard tier resources:** Namespaces (with Namespace Topics)
+
+### Decision Matrix
+
+| Scenario | Recommended Tier |
+|----------|------------------|
+| React to Azure resource events (blob created, VM started) | **Basic** |
+| IoT device communication with MQTT | **Standard** |
+| Integrate with partner SaaS events | **Basic** |
+| High-volume event streaming (>5 MB/s) | **Standard** |
+| Trigger Azure Functions from events | **Basic** |
+| Multiple consumers needing pull delivery | **Standard** |
+| Event replay/retention >1 day needed | **Standard** |
+| Multi-tenant application with domains | **Basic** |
+
+### Deployment Commands
+
+**Basic Tier (Custom Topic):**
+```bash
+az eventgrid topic create \
+    --name my-custom-topic \
+    --location westus2 \
+    --resource-group myResourceGroup
+```
+
+**Standard Tier (Namespace):**
+```bash
+az eventgrid namespace create \
+    --name my-namespace \
+    --location westus2 \
+    --resource-group myResourceGroup
+```
+
 ## Event Structure
 
 ### CloudEvents Schema (Recommended)
